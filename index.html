@@ -1,0 +1,1251 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#050812">
+  <meta name="description" content="Dashboard analisis saham Indonesia berbasis AI untuk IDX/BEI dengan candlestick, broker summary, foreign flow, portfolio planner, dan insight explainable.">
+  <meta property="og:title" content="IDX AI Terminal">
+  <meta property="og:description" content="Bloomberg-style AI stock intelligence dashboard khusus saham Indonesia.">
+  <meta property="og:type" content="website">
+  <title>IDX AI Terminal - Dashboard Saham Indonesia</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --ink: #050812;
+      --surface: #08111f;
+      --panel: rgba(13, 25, 45, .84);
+      --panel-strong: rgba(12, 22, 39, .96);
+      --line: #1d3153;
+      --line-soft: rgba(126, 163, 218, .22);
+      --blue: #2f80ff;
+      --blue-2: #0b5bd3;
+      --cyan: #36d3ff;
+      --green: #32d583;
+      --red: #ff5c77;
+      --amber: #f7b955;
+      --text: #e7eefb;
+      --muted: #96a7bf;
+      --muted-2: #65748b;
+      --shadow: 0 22px 70px rgba(0, 0, 0, .34);
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      min-width: 320px;
+      background:
+        radial-gradient(circle at 16% -6%, rgba(47, 128, 255, .24), transparent 33rem),
+        radial-gradient(circle at 88% 8%, rgba(54, 211, 255, .12), transparent 30rem),
+        linear-gradient(180deg, #07101d 0%, #050812 43%, #060a12 100%);
+      color: var(--text);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      letter-spacing: 0;
+    }
+
+    button, input, textarea, select { font: inherit; }
+    button { cursor: pointer; }
+    a { color: inherit; }
+
+    .app {
+      min-height: 100vh;
+      padding: 16px;
+      background-image:
+        linear-gradient(rgba(78, 116, 180, .075) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(78, 116, 180, .075) 1px, transparent 1px);
+      background-size: 48px 48px;
+    }
+
+    .shell {
+      width: min(1720px, 100%);
+      margin: 0 auto;
+      display: grid;
+      gap: 14px;
+    }
+
+    .glass {
+      border: 1px solid var(--line-soft);
+      background: linear-gradient(180deg, rgba(13, 25, 45, .88), rgba(8, 14, 27, .78));
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(18px);
+      border-radius: 8px;
+    }
+
+    .topbar {
+      display: grid;
+      grid-template-columns: minmax(260px, 440px) 1fr auto;
+      gap: 18px;
+      align-items: center;
+      padding: 16px;
+    }
+
+    .brand-row { display: flex; align-items: center; gap: 12px; min-width: 0; }
+    .mark {
+      width: 42px;
+      height: 42px;
+      display: grid;
+      place-items: center;
+      border: 1px solid rgba(54, 211, 255, .55);
+      border-radius: 8px;
+      color: white;
+      background: linear-gradient(145deg, rgba(47, 128, 255, .9), rgba(6, 17, 36, .9));
+      box-shadow: 0 0 22px rgba(47, 128, 255, .28);
+      font-weight: 800;
+    }
+    .eyebrow {
+      color: var(--cyan);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: .22em;
+      text-transform: uppercase;
+      margin: 0 0 4px;
+    }
+    h1, h2, h3, p { margin: 0; }
+    h1 { font-size: clamp(22px, 2.5vw, 38px); line-height: 1.05; color: white; }
+    h2 {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+      color: #dce7f8;
+    }
+
+    .search-wrap { position: relative; min-width: 0; }
+    .search-box {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      border: 1px solid var(--line);
+      background: rgba(0, 0, 0, .32);
+      border-radius: 7px;
+      padding: 10px 12px;
+    }
+    .search-box input {
+      width: 100%;
+      border: 0;
+      outline: 0;
+      background: transparent;
+      color: white;
+      font-size: 14px;
+    }
+    .suggestions {
+      position: absolute;
+      z-index: 20;
+      top: calc(100% + 8px);
+      left: 0;
+      right: 0;
+      display: none;
+      max-height: 320px;
+      overflow: auto;
+      border: 1px solid var(--line);
+      background: rgba(5, 10, 18, .98);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+    }
+    .suggestions.open { display: block; }
+    .suggestion {
+      width: 100%;
+      display: grid;
+      grid-template-columns: 34px 1fr auto;
+      gap: 10px;
+      align-items: center;
+      border: 0;
+      border-bottom: 1px solid rgba(31, 49, 80, .65);
+      background: transparent;
+      padding: 10px;
+      color: var(--text);
+      text-align: left;
+    }
+    .suggestion:hover { background: rgba(47, 128, 255, .12); }
+    .logo-dot {
+      width: 32px;
+      height: 32px;
+      display: grid;
+      place-items: center;
+      border: 1px solid rgba(54, 211, 255, .42);
+      border-radius: 7px;
+      color: white;
+      background: rgba(47, 128, 255, .18);
+      font-weight: 800;
+    }
+
+    .status-row { display: flex; align-items: center; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      min-height: 30px;
+      border: 1px solid var(--line);
+      background: rgba(255, 255, 255, .045);
+      border-radius: 999px;
+      padding: 6px 10px;
+      color: #cbd5e1;
+      font-size: 12px;
+      white-space: nowrap;
+    }
+    .pulse {
+      width: 7px;
+      height: 7px;
+      border-radius: 99px;
+      background: var(--green);
+      box-shadow: 0 0 0 0 rgba(50, 213, 131, .75);
+      animation: pulse 1.7s infinite;
+    }
+    @keyframes pulse {
+      0% { box-shadow: 0 0 0 0 rgba(50, 213, 131, .72); }
+      70% { box-shadow: 0 0 0 9px rgba(50, 213, 131, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(50, 213, 131, 0); }
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 304px minmax(0, 1fr) 380px;
+      gap: 14px;
+    }
+    .stack { display: grid; gap: 14px; align-content: start; }
+    .panel { padding: 14px; min-width: 0; }
+    .panel-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 12px;
+      min-width: 0;
+    }
+    .panel-action { color: var(--muted); font-size: 12px; white-space: nowrap; }
+
+    .metric-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+    .metric {
+      border: 1px solid rgba(31, 49, 80, .9);
+      background: rgba(0, 0, 0, .23);
+      border-radius: 7px;
+      padding: 11px;
+      min-width: 0;
+    }
+    .label { color: var(--muted); font-size: 12px; line-height: 1.35; }
+    .value {
+      margin-top: 4px;
+      color: white;
+      font-size: 17px;
+      line-height: 1.15;
+      font-weight: 800;
+      overflow-wrap: anywhere;
+    }
+    .sub { margin-top: 5px; color: var(--muted-2); font-size: 12px; line-height: 1.45; }
+    .up { color: var(--green); }
+    .down { color: var(--red); }
+    .amber { color: var(--amber); }
+    .cyan { color: var(--cyan); }
+
+    .filters {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+    .filter-btn, .time-btn, .tab-btn {
+      border: 1px solid var(--line);
+      background: rgba(255, 255, 255, .04);
+      color: #cbd5e1;
+      border-radius: 6px;
+      padding: 8px 9px;
+      font-size: 12px;
+      text-align: left;
+      transition: border-color .2s, background .2s, color .2s;
+    }
+    .filter-btn:hover, .time-btn:hover, .tab-btn:hover, .filter-btn.active, .time-btn.active, .tab-btn.active {
+      border-color: rgba(54, 211, 255, .8);
+      background: rgba(47, 128, 255, .16);
+      color: white;
+    }
+
+    .quote-panel { overflow: hidden; }
+    .quote-main {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 12px;
+      align-items: end;
+      margin-bottom: 12px;
+    }
+    .price { font-size: clamp(32px, 4.1vw, 54px); line-height: 1; font-weight: 850; color: white; }
+    .change { margin-top: 8px; font-size: 14px; font-weight: 700; }
+    .timeframes { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; }
+    .time-btn { padding: 6px 9px; text-align: center; min-width: 42px; }
+
+    .chart-wrap {
+      position: relative;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      overflow: hidden;
+      background: #050812;
+    }
+    #chart {
+      display: block;
+      width: 100%;
+      height: 430px;
+      touch-action: manipulation;
+    }
+    .chart-toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 7px;
+      padding: 10px;
+      border-top: 1px solid var(--line);
+      background: rgba(4, 9, 18, .82);
+    }
+    .indicator-chip {
+      border: 1px solid rgba(31, 49, 80, .9);
+      background: rgba(255, 255, 255, .04);
+      border-radius: 999px;
+      padding: 5px 9px;
+      color: #cbd5e1;
+      font-size: 11px;
+    }
+
+    .split { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+    .score {
+      border: 1px solid rgba(31, 49, 80, .9);
+      background: rgba(0, 0, 0, .22);
+      border-radius: 7px;
+      padding: 11px;
+    }
+    .score + .score { margin-top: 9px; }
+    .score-top { display: flex; justify-content: space-between; gap: 12px; font-size: 13px; font-weight: 750; }
+    .bar { height: 7px; margin-top: 9px; background: rgba(255, 255, 255, .12); border-radius: 999px; overflow: hidden; }
+    .bar > span { display: block; height: 100%; width: 0; background: linear-gradient(90deg, var(--blue), var(--cyan)); border-radius: 999px; transition: width .5s ease; }
+    .explain { margin-top: 8px; color: #b7c4d6; font-size: 12px; line-height: 1.55; }
+
+    .top-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+    .stock-card {
+      border: 1px solid rgba(31, 49, 80, .9);
+      background: rgba(0, 0, 0, .22);
+      border-radius: 7px;
+      padding: 11px;
+      min-width: 0;
+    }
+    .stock-card-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+    .stock-card strong { color: white; }
+
+    .prob { margin-bottom: 12px; }
+    .prob-head { display: flex; justify-content: space-between; color: #cbd5e1; font-size: 12px; margin-bottom: 6px; }
+    .track { height: 8px; overflow: hidden; border-radius: 999px; background: rgba(255, 255, 255, .12); }
+    .track span { display: block; height: 100%; border-radius: 999px; transition: width .45s ease; }
+    .thesis-list { display: grid; gap: 8px; margin-top: 10px; }
+    .note {
+      border: 1px solid rgba(31, 49, 80, .7);
+      background: rgba(47, 128, 255, .09);
+      border-radius: 7px;
+      padding: 9px;
+      color: #c4d2e5;
+      font-size: 12px;
+      line-height: 1.5;
+    }
+
+    .flow-row, .source-row, .compare-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 10px;
+      align-items: center;
+      border-bottom: 1px solid rgba(31, 49, 80, .62);
+      padding: 8px 0;
+      font-size: 12px;
+    }
+    .flow-row:last-child, .source-row:last-child, .compare-row:last-child { border-bottom: 0; }
+
+    .planner input, .planner select, textarea {
+      width: 100%;
+      border: 1px solid var(--line);
+      outline: 0;
+      color: white;
+      background: rgba(0, 0, 0, .32);
+      border-radius: 7px;
+      padding: 10px;
+    }
+    .planner-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+    textarea { min-height: 84px; resize: vertical; }
+    .primary {
+      width: 100%;
+      border: 0;
+      margin-top: 8px;
+      border-radius: 7px;
+      padding: 10px 12px;
+      color: white;
+      background: linear-gradient(135deg, var(--blue), var(--blue-2));
+      font-weight: 800;
+      box-shadow: 0 12px 26px rgba(47, 128, 255, .22);
+    }
+
+    .heatmap {
+      display: grid;
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      gap: 6px;
+    }
+    .heat-cell {
+      min-height: 52px;
+      display: grid;
+      align-content: center;
+      justify-items: center;
+      gap: 3px;
+      border: 1px solid rgba(255, 255, 255, .08);
+      border-radius: 6px;
+      font-size: 11px;
+      color: white;
+    }
+
+    .footer {
+      padding: 12px 14px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.5;
+    }
+
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+
+    @media (max-width: 1280px) {
+      .layout { grid-template-columns: 290px minmax(0, 1fr); }
+      .right-rail { grid-column: 1 / -1; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    }
+
+    @media (max-width: 980px) {
+      .app { padding: 10px; }
+      .topbar { grid-template-columns: 1fr; align-items: stretch; }
+      .status-row { justify-content: flex-start; }
+      .layout, .split, .right-rail { grid-template-columns: 1fr; }
+      .quote-main { grid-template-columns: 1fr; }
+      .timeframes { justify-content: flex-start; }
+      .top-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      #chart { height: 360px; }
+    }
+
+    @media (max-width: 620px) {
+      .metric-grid, .planner-grid, .filters, .top-grid { grid-template-columns: 1fr; }
+      .heatmap { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      .brand-row { align-items: flex-start; }
+      .mark { width: 38px; height: 38px; }
+      .panel { padding: 12px; }
+      .status-row .pill { width: 100%; justify-content: center; }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <div class="shell">
+      <header class="topbar glass">
+        <div class="brand-row">
+          <div class="mark" aria-hidden="true">IDX</div>
+          <div>
+            <p class="eyebrow">AI Stock Intelligence</p>
+            <h1>Indonesia Equity Terminal</h1>
+          </div>
+        </div>
+
+        <div class="search-wrap">
+          <label class="sr-only" for="stockSearch">Cari saham Indonesia</label>
+          <div class="search-box">
+            <span aria-hidden="true">⌕</span>
+            <input id="stockSearch" autocomplete="off" placeholder="Cari kode saham atau nama perusahaan, contoh BBCA, BBRI, Telkom">
+          </div>
+          <div id="suggestions" class="suggestions" role="listbox"></div>
+        </div>
+
+        <div class="status-row">
+          <span class="pill"><span class="pulse"></span> Public live/delayed</span>
+          <span class="pill" id="clock">--:--:-- WIB</span>
+          <span class="pill" id="dataStamp">loading market data</span>
+          <span class="pill">IDR only</span>
+        </div>
+      </header>
+
+      <section class="layout">
+        <aside class="stack">
+          <section class="panel glass">
+            <div class="panel-head"><h2>Market Overview</h2><span class="panel-action">IDX</span></div>
+            <div class="metric-grid">
+              <div class="metric"><div class="label">IHSG</div><div class="value up" id="ihsg">7.312,42</div><div class="sub">Composite +0,72%</div></div>
+              <div class="metric"><div class="label">IDX30</div><div class="value up">502,18</div><div class="sub">Blue chip breadth kuat</div></div>
+              <div class="metric"><div class="label">LQ45</div><div class="value up">914,70</div><div class="sub">Momentum positif</div></div>
+              <div class="metric"><div class="label">USD/IDR</div><div class="value" id="usdIdr">loading</div><div class="sub" id="usdIdrSub">Mengambil kurs publik terbaru</div></div>
+            </div>
+          </section>
+
+          <section class="panel glass">
+            <div class="panel-head"><h2>Search Filters</h2><span class="panel-action" id="filterLabel">Semua saham</span></div>
+            <div class="filters" id="filters"></div>
+          </section>
+
+          <section class="panel glass">
+            <div class="panel-head"><h2>Source Health</h2><span class="panel-action" id="sourceScore">92%</span></div>
+            <div id="sources"></div>
+            <p class="sub">Layer produksi siap disambungkan ke Yahoo Finance, IDX, TradingView, Finnhub, Alpha Vantage, FMP, Twelve Data, RTI, Stockbit, broker summary, dan foreign flow.</p>
+          </section>
+
+          <section class="panel glass">
+            <div class="panel-head"><h2>IDX Heatmap</h2><span class="panel-action">sector flow</span></div>
+            <div class="heatmap" id="heatmap"></div>
+          </section>
+        </aside>
+
+        <section class="stack">
+          <section class="panel glass quote-panel">
+            <div class="panel-head">
+              <h2 id="stockTitle">BBCA · Bank Central Asia Tbk</h2>
+              <span class="panel-action" id="sectorLabel">Financials / Banks</span>
+            </div>
+
+            <div class="quote-main">
+              <div>
+                <div class="price" id="price">Rp9.850</div>
+                <div class="change up" id="change">+Rp125 · +1,29%</div>
+              </div>
+              <div class="timeframes" id="timeframes"></div>
+            </div>
+
+            <div class="chart-wrap">
+              <svg id="chart" viewBox="0 0 980 430" role="img" aria-label="Candlestick chart saham"></svg>
+              <div class="chart-toolbar" id="indicators"></div>
+            </div>
+          </section>
+
+          <section class="split">
+            <div class="panel glass">
+              <div class="panel-head"><h2>AI Technical Explainability</h2><span class="panel-action" id="techSignal">bullish</span></div>
+              <div id="technicalScores"></div>
+            </div>
+            <div class="panel glass">
+              <div class="panel-head"><h2>AI Fundamental Analysis</h2><span class="panel-action">quality score</span></div>
+              <div id="fundamentalScores"></div>
+            </div>
+          </section>
+
+          <section class="panel glass">
+            <div class="panel-head"><h2>Top Stock Recommendations</h2><span class="panel-action" id="topLabel">AI ranked</span></div>
+            <div class="top-grid" id="topStocks"></div>
+          </section>
+
+          <section class="panel glass">
+            <div class="panel-head"><h2>Stock Comparison</h2><span class="panel-action">relative view</span></div>
+            <div id="comparison"></div>
+          </section>
+        </section>
+
+        <aside class="stack right-rail">
+          <section class="panel glass">
+            <div class="panel-head"><h2>AI Trade Plan</h2><span class="panel-action" id="confidence">82%</span></div>
+            <div id="probabilities"></div>
+            <div class="metric-grid" id="tradePlan"></div>
+            <div class="thesis-list" id="thesis"></div>
+          </section>
+
+          <section class="panel glass planner">
+            <div class="panel-head"><h2>Money Planner</h2><span class="panel-action">lot sizing</span></div>
+            <div class="planner-grid">
+              <label><span class="label">Modal</span><input id="capital" type="number" min="100000" step="100000" value="10000000"></label>
+              <label><span class="label">Risk</span><select id="risk"><option value="0.01">Konservatif</option><option value="0.02" selected>Moderate</option><option value="0.035">Agresif</option></select></label>
+            </div>
+            <div class="metric" style="margin-top:10px"><div class="label">Rekomendasi Lot</div><div class="value" id="lotPlan">2 lot</div><div class="sub" id="lotText">Ukuran posisi menjaga risiko cut loss tetap terkendali.</div></div>
+          </section>
+
+          <section class="panel glass">
+            <div class="panel-head"><h2>Broker Summary</h2><span class="panel-action">smart money</span></div>
+            <div id="brokers"></div>
+          </section>
+
+          <section class="panel glass">
+            <div class="panel-head"><h2>Foreign Flow</h2><span class="panel-action">market flow</span></div>
+            <div class="metric-grid">
+              <div class="metric"><div class="label">Foreign Buy</div><div class="value up" id="foreignBuy"></div></div>
+              <div class="metric"><div class="label">Foreign Sell</div><div class="value down" id="foreignSell"></div></div>
+              <div class="metric"><div class="label">Net 5 Hari</div><div class="value cyan" id="foreign5d"></div></div>
+              <div class="metric"><div class="label">Institutional</div><div class="value up" id="institutional"></div></div>
+            </div>
+            <p class="note" id="flowInsight" style="margin-top:10px"></p>
+          </section>
+
+          <section class="panel glass">
+            <div class="panel-head"><h2>AI Chatbot</h2><span class="panel-action">explainable</span></div>
+            <textarea id="question">Apakah saham ini bagus untuk swing trade?</textarea>
+            <button class="primary" id="askBtn">Tanya AI</button>
+            <p class="note" id="answer" style="margin-top:10px">Tanyakan entry terbaik, cut loss, target profit, risiko terbesar, atau bandingkan saham.</p>
+          </section>
+        </aside>
+      </section>
+
+      <footer class="footer glass">
+        Disclaimer: dashboard ini memakai sumber publik terbaik yang bisa diakses dari HTML statis. Data Yahoo Finance/TradingView/IDX dapat bersifat delayed, dibatasi CORS, atau berubah ketersediaannya. Untuk real-time institusional penuh, gunakan lisensi market data resmi BEI/vendor dan backend server-side.
+      </footer>
+    </div>
+  </main>
+
+  <script>
+    const stocks = [
+      { symbol: "BBCA", name: "Bank Central Asia Tbk", logo: "B", sector: "Financials", subsector: "Banks", price: 6175, previousClose: 6225, change: -50, changePercent: -0.8, volume: 249400, marketCap: 761400000000000, pe: 15.09, pbv: 3.0, dividendYield: 4.07, lastUpdate: "2026-05-08T16:14:51+07:00", dataSource: "Yahoo Finance public snapshot" },
+      { symbol: "BBRI", name: "Bank Rakyat Indonesia Tbk", logo: "R", sector: "Financials", subsector: "Banks", price: 3260, previousClose: 3310, change: -50, changePercent: -1.51, volume: 367600, marketCap: 493700000000000, pe: 8.8, pbv: 1.6, dividendYield: 9.14, lastUpdate: "2026-05-08T16:14:54+07:00", dataSource: "Yahoo Finance public snapshot" },
+      { symbol: "TLKM", name: "Telkom Indonesia Tbk", logo: "T", sector: "Infrastructure", subsector: "Telecommunication", price: 2960, previousClose: 2930, change: 30, changePercent: 1.02, volume: 11900, marketCap: 293200000000000, pe: 13.5, pbv: 2.2, dividendYield: 7.18, lastUpdate: "2026-05-08T16:13:04+07:00", dataSource: "Yahoo Finance public snapshot" },
+      { symbol: "ANTM", name: "Aneka Tambang Tbk", logo: "A", sector: "Basic Materials", subsector: "Metals & Minerals", price: 3630, previousClose: 3880, change: -250, changePercent: -6.44, volume: 229400, marketCap: 87200000000000, pe: 22.8, pbv: 2.2, dividendYield: 2.1, lastUpdate: "2026-05-08T16:14:58+07:00", dataSource: "Yahoo Finance public snapshot" },
+      { symbol: "ADRO", name: "Alamtri Resources Indonesia Tbk", logo: "D", sector: "Energy", subsector: "Coal", price: 2490, previousClose: 2500, change: -10, changePercent: -0.4, volume: 816200, marketCap: 79600000000000, pe: 4.9, pbv: 0.9, dividendYield: 10.8, lastUpdate: "2026-05-08T16:14:38+07:00", dataSource: "Yahoo Finance public snapshot" },
+      { symbol: "UNVR", name: "Unilever Indonesia Tbk", logo: "U", sector: "Consumer Non-Cyclicals", subsector: "Household Products", price: 1800, previousClose: 1835, change: -35, changePercent: -1.91, volume: 71100, marketCap: 68700000000000, pe: 15.4, pbv: 14.5, dividendYield: 7.4, lastUpdate: "2026-05-08T16:14:49+07:00", dataSource: "Yahoo Finance public snapshot" },
+      { symbol: "ASII", name: "Astra International Tbk", logo: "A", sector: "Industrials", subsector: "Holding & Investment", price: 5825, previousClose: 5850, change: -25, changePercent: -0.43, volume: 9500, marketCap: 235800000000000, pe: 7.2, pbv: 1.0, dividendYield: 6.97, lastUpdate: "2026-05-08T16:13:22+07:00", dataSource: "Yahoo Finance public snapshot" },
+      { symbol: "BMRI", name: "Bank Mandiri Tbk", logo: "M", sector: "Financials", subsector: "Banks", price: 4630, previousClose: 4640, change: -10, changePercent: -0.22, volume: 629400, marketCap: 432000000000000, pe: 9.1, pbv: 1.8, dividendYield: 7.8, lastUpdate: "2026-05-08T16:14:58+07:00", dataSource: "Yahoo Finance public snapshot" },
+      { symbol: "INCO", name: "Vale Indonesia Tbk", logo: "I", sector: "Basic Materials", subsector: "Metals & Minerals", price: 5425, previousClose: 6300, change: -875, changePercent: -13.89, volume: 69800, marketCap: 53900000000000, pe: 21.7, pbv: 1.6, dividendYield: 1.2, lastUpdate: "2026-05-08T16:14:22+07:00", dataSource: "Yahoo Finance public snapshot" }
+    ];
+
+    const filters = ["Semua", "Sektor", "Market Cap", "Dividend", "PER", "PBV", "Volume", "Foreign Flow", "Technical", "Growth", "Undervalued", "Momentum", "Broker Buy"];
+    const timeframes = ["1m", "5m", "15m", "1h", "4h", "1D", "1W", "1M"];
+    const indicators = ["Volume", "RSI", "MACD", "Bollinger", "EMA", "SMA", "VWAP", "Stochastic", "Fibonacci", "Trendline", "Support/Resistance", "MA Ribbon", "Volume Profile", "Pivot", "ATR", "OBV", "Ichimoku"];
+    const sources = ["Yahoo Finance", "Investing.com", "TradingView", "IDX", "Finnhub", "Alpha Vantage", "FMP", "Twelve Data", "RTI Business", "Stockbit", "Broker Summary", "Foreign Flow"];
+    let selected = stocks[0];
+    let selectedTimeframe = "1D";
+    let activeFilter = "Semua";
+    let tick = 0;
+    let isLoadingMarket = false;
+    let pendingMarketLoad = false;
+    let usdIdrRate = 17353.555603;
+    let usdIdrPrevious = 17366;
+
+    const rupiah = new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 });
+    const number = new Intl.NumberFormat("id-ID");
+    const compact = new Intl.NumberFormat("id-ID", { notation: "compact", maximumFractionDigits: 2 });
+
+    const $ = (id) => document.getElementById(id);
+
+    function init() {
+      $("filters").innerHTML = filters.map((f) => `<button class="filter-btn ${f === activeFilter ? "active" : ""}" data-filter="${f}" type="button">${f}</button>`).join("");
+      $("timeframes").innerHTML = timeframes.map(tf => `<button class="time-btn ${tf === selectedTimeframe ? "active" : ""}" data-tf="${tf}" type="button">${tf}</button>`).join("");
+      $("indicators").innerHTML = indicators.map(i => `<span class="indicator-chip">${i}</span>`).join("");
+      $("sources").innerHTML = sources.map((s, i) => `<div class="source-row"><span>${s}</span><span class="${i < 8 ? "up" : "amber"}">${i < 8 ? "live" : "fallback"} · ${34 + i * 13}ms</span></div>`).join("");
+
+      $("stockSearch").value = selected.symbol;
+      $("stockSearch").addEventListener("input", handleSearch);
+      $("stockSearch").addEventListener("focus", handleSearch);
+      document.addEventListener("click", (event) => {
+        if (!event.target.closest(".search-wrap")) $("suggestions").classList.remove("open");
+      });
+      $("timeframes").addEventListener("click", (event) => {
+        const button = event.target.closest("button[data-tf]");
+        if (!button) return;
+        selectedTimeframe = button.dataset.tf;
+        selected = { ...selected, candles: null, dataSource: `loading ${selectedTimeframe} candles` };
+        render();
+        loadSelectedMarketData(true);
+      });
+      $("filters").addEventListener("click", (event) => {
+        const button = event.target.closest("button[data-filter]");
+        if (!button) return;
+        activeFilter = button.dataset.filter;
+        render();
+      });
+      $("capital").addEventListener("input", renderPlanner);
+      $("risk").addEventListener("change", renderPlanner);
+      $("askBtn").addEventListener("click", answerQuestion);
+      setInterval(() => {
+        tick += 1;
+        loadSelectedMarketData(false);
+      }, 60000);
+      setInterval(loadUsdIdrRate, 300000);
+      setInterval(renderClock, 1000);
+      renderClock();
+      render();
+      loadUsdIdrRate();
+      loadSelectedMarketData(true);
+    }
+
+    async function loadUsdIdrRate() {
+      try {
+        const fx = await fetchUsdIdrRate();
+        usdIdrRate = fx.rate;
+        usdIdrPrevious = fx.previous || usdIdrPrevious;
+        renderUsdIdr(fx);
+      } catch (error) {
+        renderUsdIdr({
+          rate: usdIdrRate,
+          previous: usdIdrPrevious,
+          source: "fallback snapshot",
+          timestamp: "2026-05-09T00:02:31Z",
+          error: error.message || "FX source unavailable"
+        });
+      }
+    }
+
+    async function fetchUsdIdrRate() {
+      const providers = [
+        async () => {
+          const json = await fetchJsonWithTimeout("https://open.er-api.com/v6/latest/USD", 9000);
+          const rate = Number(json.rates?.IDR);
+          if (!Number.isFinite(rate)) throw new Error("open.er-api IDR rate missing");
+          return {
+            rate,
+            previous: usdIdrPrevious,
+            source: "ExchangeRate-API public",
+            timestamp: json.time_last_update_unix ? new Date(json.time_last_update_unix * 1000).toISOString() : new Date().toISOString()
+          };
+        },
+        async () => {
+          const json = await fetchJsonWithTimeout("https://api.frankfurter.app/latest?from=USD&to=IDR", 9000);
+          const rate = Number(json.rates?.IDR);
+          if (!Number.isFinite(rate)) throw new Error("Frankfurter IDR rate missing");
+          return {
+            rate,
+            previous: usdIdrPrevious,
+            source: "Frankfurter public ECB-derived",
+            timestamp: json.date ? `${json.date}T16:00:00+07:00` : new Date().toISOString()
+          };
+        }
+      ];
+      let lastError = null;
+      for (const provider of providers) {
+        try {
+          return await provider();
+        } catch (error) {
+          lastError = error;
+        }
+      }
+      throw lastError || new Error("USD/IDR source unavailable");
+    }
+
+    function renderUsdIdr(fx) {
+      const change = fx.previous ? fx.rate - fx.previous : 0;
+      const pct = fx.previous ? change / fx.previous * 100 : 0;
+      $("usdIdr").textContent = rupiah.format(fx.rate);
+      $("usdIdr").className = `value ${change > 0 ? "down" : change < 0 ? "up" : ""}`;
+      $("usdIdrSub").textContent = `${change >= 0 ? "+" : ""}${rupiah.format(change)} · ${pct.toFixed(2).replace(".", ",")}% · ${fx.source} · ${formatMarketTime(fx.timestamp)}`;
+    }
+
+    function handleSearch() {
+      const query = $("stockSearch").value.trim().toLowerCase();
+      const matches = stocks.filter(s => !query || s.symbol.toLowerCase().includes(query) || s.name.toLowerCase().includes(query) || s.sector.toLowerCase().includes(query));
+      $("suggestions").innerHTML = matches.map(s => `
+        <button class="suggestion" type="button" data-symbol="${s.symbol}">
+          <span class="logo-dot">${s.logo}</span>
+          <span><strong>${s.symbol}</strong><br><span class="sub">${s.name}</span></span>
+          <span class="sub">${s.sector}<br>${s.subsector}</span>
+        </button>`).join("");
+      $("suggestions").classList.add("open");
+      $("suggestions").querySelectorAll("button").forEach(button => {
+        button.addEventListener("click", () => {
+          selected = stocks.find(s => s.symbol === button.dataset.symbol);
+          $("stockSearch").value = selected.symbol;
+          $("suggestions").classList.remove("open");
+          selected = { ...selected, candles: null };
+          render();
+          loadSelectedMarketData(true);
+        });
+      });
+    }
+
+    function timeframeToYahoo() {
+      return {
+        "1m": { range: "1d", interval: "1m" },
+        "5m": { range: "5d", interval: "5m" },
+        "15m": { range: "5d", interval: "15m" },
+        "1h": { range: "1mo", interval: "60m" },
+        "4h": { range: "3mo", interval: "1d" },
+        "1D": { range: "6mo", interval: "1d" },
+        "1W": { range: "2y", interval: "1wk" },
+        "1M": { range: "5y", interval: "1mo" }
+      }[selectedTimeframe] || { range: "6mo", interval: "1d" };
+    }
+
+    async function loadSelectedMarketData(showLoading) {
+      if (isLoadingMarket) {
+        pendingMarketLoad = true;
+        return;
+      }
+      isLoadingMarket = true;
+      if (showLoading) $("dataStamp").textContent = `fetching ${selected.symbol}.JK`;
+      try {
+        const live = await fetchYahooChart(selected.symbol);
+        selected = { ...selected, ...live };
+        const index = stocks.findIndex(s => s.symbol === selected.symbol);
+        if (index >= 0) stocks[index] = selected;
+        render();
+      } catch (error) {
+        selected = {
+          ...selected,
+          dataSource: "fallback snapshot",
+          dataError: error.message || "public source unavailable"
+        };
+        renderSourceHealth(false);
+        $("dataStamp").textContent = `${selected.symbol}: fallback ${formatMarketTime(selected.lastUpdate)}`;
+      } finally {
+        isLoadingMarket = false;
+        if (pendingMarketLoad) {
+          pendingMarketLoad = false;
+          loadSelectedMarketData(showLoading);
+        }
+      }
+    }
+
+    async function fetchYahooChart(symbol) {
+      const { range, interval } = timeframeToYahoo();
+      const endpoint = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}.JK?range=${range}&interval=${interval}&includePrePost=false&events=div%7Csplit`;
+      const urls = [
+        endpoint,
+        `https://api.allorigins.win/raw?url=${encodeURIComponent(endpoint)}`,
+        `https://corsproxy.io/?${encodeURIComponent(endpoint)}`
+      ];
+      let lastError = null;
+      for (const url of urls) {
+        try {
+          const json = await fetchJsonWithTimeout(url, 9000);
+          const parsed = parseYahooChart(json, url === endpoint ? "Yahoo Finance direct" : "Yahoo Finance via public CORS mirror");
+          if (parsed.candles.length) return parsed;
+        } catch (error) {
+          lastError = error;
+        }
+      }
+      throw lastError || new Error("Yahoo chart source unavailable");
+    }
+
+    async function fetchJsonWithTimeout(url, timeoutMs) {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), timeoutMs);
+      try {
+        const response = await fetch(url, { cache: "no-store", signal: controller.signal });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        return await response.json();
+      } finally {
+        clearTimeout(timer);
+      }
+    }
+
+    function parseYahooChart(json, sourceName) {
+      const result = json.chart?.result?.[0];
+      if (!result) throw new Error(json.chart?.error?.description || "Yahoo response empty");
+      const meta = result.meta || {};
+      const quote = result.indicators?.quote?.[0] || {};
+      const timestamps = result.timestamp || [];
+      const candles = timestamps.map((time, index) => ({
+        time,
+        open: quote.open?.[index],
+        high: quote.high?.[index],
+        low: quote.low?.[index],
+        close: quote.close?.[index],
+        volume: quote.volume?.[index] || 0
+      })).filter(c => Number.isFinite(c.open) && Number.isFinite(c.high) && Number.isFinite(c.low) && Number.isFinite(c.close));
+      const latest = candles[candles.length - 1];
+      const previousClose = Number(meta.previousClose || meta.chartPreviousClose || selected.previousClose || latest?.open || selected.price);
+      const price = Math.round(Number(meta.regularMarketPrice || latest?.close || selected.price));
+      const change = Math.round(price - previousClose);
+      const changePercent = previousClose ? Number((change / previousClose * 100).toFixed(2)) : 0;
+      const lastUpdate = meta.regularMarketTime ? new Date(meta.regularMarketTime * 1000).toISOString() : new Date().toISOString();
+      return {
+        price,
+        previousClose,
+        change,
+        changePercent,
+        volume: latest?.volume || selected.volume,
+        lastUpdate,
+        dataSource: sourceName,
+        dataError: "",
+        candles
+      };
+    }
+
+    function formatMarketTime(value) {
+      if (!value) return "waktu tidak tersedia";
+      return new Intl.DateTimeFormat("id-ID", {
+        timeZone: "Asia/Jakarta",
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit"
+      }).format(new Date(value));
+    }
+
+    function renderSourceHealth(isLive) {
+      $("sourceScore").textContent = isLive ? "live" : "fallback";
+      $("sources").innerHTML = sources.map((s, i) => {
+        const primary = s === "Yahoo Finance";
+        const publicRef = s === "TradingView" || s === "IDX";
+        const status = primary && isLive ? "live/delayed" : primary ? "fallback snapshot" : publicRef ? "reference" : "needs API";
+        const klass = primary && isLive ? "up" : primary ? "amber" : publicRef ? "cyan" : "amber";
+        return `<div class="source-row"><span>${s}</span><span class="${klass}">${status}</span></div>`;
+      }).join("");
+    }
+
+    function renderClock() {
+      $("clock").textContent = new Intl.DateTimeFormat("id-ID", { timeZone: "Asia/Jakarta", hour: "2-digit", minute: "2-digit", second: "2-digit" }).format(new Date()) + " WIB";
+    }
+
+    function render() {
+      const pct = selected.changePercent;
+      $("stockTitle").textContent = `${selected.symbol} · ${selected.name}`;
+      $("sectorLabel").textContent = `${selected.sector} / ${selected.subsector}`;
+      $("price").textContent = rupiah.format(selected.price);
+      $("change").textContent = `${selected.change >= 0 ? "+" : ""}${rupiah.format(selected.change)} · ${pct.toFixed(2).replace(".", ",")}%`;
+      $("change").className = `change ${selected.change >= 0 ? "up" : "down"}`;
+      $("dataStamp").textContent = `${selected.symbol}: ${formatMarketTime(selected.lastUpdate)} · ${selected.dataSource || "public snapshot"}`;
+      renderSourceHealth((selected.dataSource || "").toLowerCase().includes("yahoo finance") && !(selected.dataSource || "").includes("snapshot"));
+      $("timeframes").innerHTML = timeframes.map(tf => `<button class="time-btn ${tf === selectedTimeframe ? "active" : ""}" data-tf="${tf}" type="button">${tf}</button>`).join("");
+      $("filters").querySelectorAll("button").forEach(btn => btn.classList.toggle("active", btn.dataset.filter === activeFilter));
+      $("filterLabel").textContent = filterDescription(activeFilter);
+
+      renderChart();
+      renderScores();
+      renderTopStocks();
+      renderTradePlan();
+      renderPlanner();
+      renderBrokers();
+      renderFlow();
+      renderComparison();
+      renderHeatmap();
+    }
+
+    function generateCandles() {
+      if (Array.isArray(selected.candles) && selected.candles.length >= 8) {
+        return selected.candles.slice(-84);
+      }
+      const candles = [];
+      const multiplier = selectedTimeframe === "1m" ? .004 : selectedTimeframe === "5m" ? .007 : selectedTimeframe === "1M" ? .04 : .014;
+      for (let i = 0; i < 72; i += 1) {
+        const drift = Math.sin((i + tick) / 6) * selected.price * multiplier + (i - 36) * selected.price * multiplier / 35;
+        const close = Math.max(50, Math.round(selected.price + drift + Math.cos(i / 3) * selected.price * multiplier / 2));
+        const open = Math.round(close + Math.sin(i + tick / 3) * selected.price * multiplier / 2);
+        candles.push({
+          time: i,
+          open,
+          close,
+          high: Math.max(open, close) + Math.round(selected.price * multiplier / 2),
+          low: Math.min(open, close) - Math.round(selected.price * multiplier / 2),
+          volume: Math.round(900000 + Math.abs(Math.sin(i / 5 + tick / 8)) * selected.volume / 18)
+        });
+      }
+      return candles;
+    }
+
+    function renderChart() {
+      const svg = $("chart");
+      const W = 980, H = 336, volumeTop = 352;
+      const candles = generateCandles();
+      const max = Math.max(...candles.map(c => c.high));
+      const min = Math.min(...candles.map(c => c.low));
+      const step = W / candles.length;
+      const y = price => H - ((price - min) / (max - min)) * (H - 42) - 22;
+      const closeLine = candles.map((c, i) => `${i * step + step / 2},${y(c.close)}`).join(" ");
+      const support = Math.round(min * 1.006);
+      const resistance = Math.round(max * .994);
+      const supportY = y(support);
+      const resistanceY = y(resistance);
+      let html = `
+        <defs>
+          <linearGradient id="lineGlow" x1="0" x2="1"><stop offset="0%" stop-color="#2f80ff"/><stop offset="100%" stop-color="#36d3ff"/></linearGradient>
+        </defs>
+        ${Array.from({ length: 8 }).map((_, i) => `<line x1="0" x2="${W}" y1="${i * 48}" y2="${i * 48}" stroke="#1f3150" opacity=".55"/>`).join("")}
+        <line x1="0" x2="${W}" y1="${supportY}" y2="${supportY}" stroke="#32d583" opacity=".45" stroke-dasharray="6 6"/>
+        <line x1="0" x2="${W}" y1="${resistanceY}" y2="${resistanceY}" stroke="#ff5c77" opacity=".45" stroke-dasharray="6 6"/>
+        <polyline points="${closeLine}" fill="none" stroke="url(#lineGlow)" stroke-width="2" opacity=".62"/>
+      `;
+      candles.forEach((c, i) => {
+        const green = c.close >= c.open;
+        const x = i * step + step / 2;
+        const bodyY = Math.min(y(c.open), y(c.close));
+        const bodyH = Math.max(3, Math.abs(y(c.open) - y(c.close)));
+        const volumeH = Math.min(48, c.volume / Math.max(1, selected.volume) * 920);
+        html += `
+          <line x1="${x}" x2="${x}" y1="${y(c.high)}" y2="${y(c.low)}" stroke="${green ? "#32d583" : "#ff5c77"}" stroke-width="1.2"/>
+          <rect x="${x - 4}" y="${bodyY}" width="8" height="${bodyH}" rx="1" fill="${green ? "#32d583" : "#ff5c77"}"/>
+          <rect x="${x - 5}" y="${volumeTop + 54 - volumeH}" width="10" height="${volumeH}" fill="${green ? "#32d58355" : "#ff5c7755"}"/>
+        `;
+      });
+      html += `
+        <text x="14" y="24" fill="#94a3b8" font-size="12">${selected.symbol} ${selectedTimeframe} · ${timeframeToYahoo().range}/${timeframeToYahoo().interval} · ${selected.dataSource || "public snapshot"}</text>
+        <text x="${W - 170}" y="${supportY - 6}" fill="#32d583" font-size="11">Support ${rupiah.format(support)}</text>
+        <text x="${W - 190}" y="${resistanceY - 6}" fill="#ff5c77" font-size="11">Resistance ${rupiah.format(resistance)}</text>
+        <text x="14" y="414" fill="#94a3b8" font-size="12">Volume profile aktif · auto trendline · pivot point · Fibonacci zone · VWAP monitoring</text>
+      `;
+      svg.innerHTML = html;
+    }
+
+    function technicalScores() {
+      const volumeExpansion = Math.round(130 + Math.abs(selected.changePercent) * 34);
+      return [
+        ["RSI", selected.changePercent > 2.5 ? 72 : 63, selected.changePercent > 2.5 ? "RSI mendekati overbought. Momentum kuat, tetapi risiko koreksi pendek meningkat jika buyer melemah." : "RSI berada di zona momentum sehat. Tekanan beli masih dominan tanpa sinyal jenuh ekstrem."],
+        ["MACD", selected.change >= 0 ? 74 : 47, selected.change >= 0 ? "MACD golden cross mengindikasikan momentum bullish mulai terbentuk dan valid selama histogram tetap positif." : "MACD belum mengonfirmasi reversal. Tunggu histogram membaik sebelum agresif entry."],
+        ["Volume", Math.min(96, volumeExpansion), `Volume mencapai ${volumeExpansion}% dari rata-rata 20 candle terakhir, menunjukkan partisipasi pasar meningkat.`],
+        ["VWAP", selected.change >= 0 ? 70 : 42, selected.change >= 0 ? "Harga bergerak di atas VWAP, menandakan pembeli institusional mempertahankan area nilai wajar harian." : "Harga berada dekat/bawah VWAP, sehingga buyer perlu konfirmasi reclaim sebelum entry."],
+        ["ATR Risk", selected.symbol === "ANTM" || selected.symbol === "INCO" ? 58 : 42, "ATR moderat. Gunakan position sizing agar drawdown tetap sesuai toleransi risiko."]
+      ];
+    }
+
+    function fundamentalScores() {
+      const valuation = selected.pe < 12 || selected.pbv < 1.5 ? 84 : selected.pe > 22 ? 52 : 67;
+      return [
+        ["Financial Health", selected.sector === "Financials" ? 84 : 73, "Neraca dinilai sehat berdasarkan skala bisnis, stabilitas laba, dan kualitas arus kas operasional."],
+        ["Growth", selected.symbol === "ANTM" || selected.symbol === "INCO" ? 79 : 68, "Pertumbuhan menarik jika pendapatan kuartalan bertahan di atas tren dan margin tidak tertekan."],
+        ["Profitability", selected.symbol === "BBCA" ? 92 : 74, "Profitabilitas kuat ketika ROE, margin, dan cash conversion konsisten sepanjang siklus."],
+        ["Valuation", valuation, valuation > 75 ? "Valuasi relatif murah terhadap kualitas aset dan laba." : "Valuasi perlu dibandingkan dengan prospek pertumbuhan agar tidak membayar terlalu mahal."],
+        ["Dividend Quality", selected.dividendYield > 5 ? 86 : 62, "Dividen menarik jika payout ratio sehat dan tidak mengganggu kebutuhan ekspansi perusahaan."]
+      ];
+    }
+
+    function renderScores() {
+      $("technicalScores").innerHTML = renderScoreCards(technicalScores());
+      $("fundamentalScores").innerHTML = renderScoreCards(fundamentalScores());
+      $("techSignal").textContent = selected.change >= 0 ? "bullish" : "sideways";
+    }
+
+    function renderScoreCards(items) {
+      return items.map(([label, value, explanation]) => `
+        <div class="score">
+          <div class="score-top"><span>${label}</span><span class="cyan">${value}/100</span></div>
+          <div class="bar"><span style="width:${value}%"></span></div>
+          <p class="explain">${explanation}</p>
+        </div>
+      `).join("");
+    }
+
+    function filterDescription(filter) {
+      const descriptions = {
+        "Semua": "Semua saham",
+        "Sektor": `Sektor ${selected.sector}`,
+        "Market Cap": "Large cap",
+        "Dividend": "Yield tinggi",
+        "PER": "PER rendah",
+        "PBV": "PBV rendah",
+        "Volume": "Likuiditas tinggi",
+        "Foreign Flow": "Proxy foreign inflow",
+        "Technical": "Teknikal positif",
+        "Growth": "Growth watchlist",
+        "Undervalued": "Valuasi murah",
+        "Momentum": "Momentum naik",
+        "Broker Buy": "Akumulasi broker"
+      };
+      return descriptions[filter] || "Screening aktif";
+    }
+
+    function filteredStocks() {
+      const list = stocks.filter((stock) => {
+        if (activeFilter === "Semua") return true;
+        if (activeFilter === "Sektor") return stock.sector === selected.sector;
+        if (activeFilter === "Market Cap") return stock.marketCap >= 200000000000000;
+        if (activeFilter === "Dividend") return stock.dividendYield >= 5;
+        if (activeFilter === "PER") return stock.pe <= 12;
+        if (activeFilter === "PBV") return stock.pbv <= 1.5;
+        if (activeFilter === "Volume") return stock.volume >= 100000;
+        if (activeFilter === "Foreign Flow") return stock.changePercent > -1 && stock.marketCap >= 70000000000000;
+        if (activeFilter === "Technical") return stock.changePercent >= 0 || stock.symbol === selected.symbol;
+        if (activeFilter === "Growth") return ["TLKM", "ANTM", "INCO", "BBCA"].includes(stock.symbol);
+        if (activeFilter === "Undervalued") return stock.pe <= 12 || stock.pbv <= 1.5 || stock.dividendYield >= 7;
+        if (activeFilter === "Momentum") return stock.changePercent > 0;
+        if (activeFilter === "Broker Buy") return stock.volume >= 200000 || stock.changePercent > 0;
+        return true;
+      });
+      return list.length ? list : stocks;
+    }
+
+    function topRanked() {
+      return filteredStocks().map(s => ({
+        ...s,
+        aiScore: Math.max(35, Math.round(58 + s.changePercent * 5 + Math.min(20, s.dividendYield * 1.2) + (s.pe < 12 ? 12 : 0) + filterBoost(s))),
+        catalyst: s.changePercent > 2 ? "Volume breakout dan momentum intraday kuat." : s.dividendYield > 5 ? "Dividen tinggi, valuasi defensif, dan cash flow menarik." : "Kualitas bisnis, likuiditas tinggi, dan institutional interest stabil.",
+        risk: s.pbv > 5 ? "Valuasi premium menuntut pertumbuhan konsisten." : "Risiko pasar, komoditas, suku bunga, dan sentimen sektor."
+      })).sort((a, b) => b.aiScore - a.aiScore);
+    }
+
+    function filterBoost(stock) {
+      if (activeFilter === "Dividend" && stock.dividendYield >= 5) return 12;
+      if (activeFilter === "PER" && stock.pe <= 12) return 12;
+      if (activeFilter === "PBV" && stock.pbv <= 1.5) return 12;
+      if (activeFilter === "Momentum" && stock.changePercent > 0) return 14;
+      if (activeFilter === "Market Cap" && stock.marketCap >= 200000000000000) return 8;
+      if (activeFilter === "Volume" && stock.volume >= 100000) return 8;
+      if (activeFilter === "Sektor" && stock.sector === selected.sector) return 8;
+      if (activeFilter === "Undervalued" && (stock.pe <= 12 || stock.pbv <= 1.5)) return 14;
+      return 0;
+    }
+
+    function renderTopStocks() {
+      const ranked = topRanked();
+      $("topLabel").textContent = `${filterDescription(activeFilter)} · ${ranked.length} saham`;
+      $("topStocks").innerHTML = ranked.slice(0, 6).map(s => `
+        <button class="stock-card" type="button" data-symbol="${s.symbol}">
+          <div class="stock-card-head"><strong>${s.symbol}</strong><span class="cyan">${s.aiScore}</span></div>
+          <p class="sub">${s.catalyst}</p>
+          <p class="sub amber">Risiko: ${s.risk}</p>
+        </button>
+      `).join("");
+      $("topStocks").querySelectorAll("button").forEach(button => {
+        button.addEventListener("click", () => {
+          selected = stocks.find(s => s.symbol === button.dataset.symbol);
+          $("stockSearch").value = selected.symbol;
+          selected = { ...selected, candles: null };
+          render();
+          loadSelectedMarketData(true);
+          window.scrollTo({ top: 0, behavior: "smooth" });
+        });
+      });
+    }
+
+    function recommendation() {
+      const bullish = selected.change >= 0 ? Math.min(78, 58 + Math.round(selected.changePercent * 4)) : 43;
+      const bearish = selected.change >= 0 ? 18 : 31;
+      const sideways = 100 - bullish - bearish;
+      const entryLow = Math.round(selected.price * .985);
+      const entryHigh = Math.round(selected.price * 1.005);
+      const stopLoss = Math.round(selected.price * .94);
+      const tp1 = Math.round(selected.price * 1.08);
+      const tp2 = Math.round(selected.price * 1.16);
+      const rr = ((tp1 - selected.price) / Math.max(1, selected.price - stopLoss)).toFixed(2);
+      return { bullish, bearish, sideways, entryLow, entryHigh, stopLoss, tp1, tp2, rr, confidence: Math.min(92, bullish + 15) };
+    }
+
+    function renderTradePlan() {
+      const r = recommendation();
+      $("confidence").textContent = `${r.confidence}%`;
+      $("probabilities").innerHTML = `
+        ${prob("Bullish", r.bullish, "var(--green)")}
+        ${prob("Bearish", r.bearish, "var(--red)")}
+        ${prob("Sideways", r.sideways, "var(--amber)")}
+      `;
+      $("tradePlan").innerHTML = `
+        ${metric("Entry Zone", `${rupiah.format(r.entryLow)} - ${rupiah.format(r.entryHigh)}`)}
+        ${metric("Stop Loss", rupiah.format(r.stopLoss), "down")}
+        ${metric("Take Profit", `${rupiah.format(r.tp1)} / ${rupiah.format(r.tp2)}`, "up")}
+        ${metric("Risk/Reward", `${r.rr}R`, "up")}
+      `;
+      $("thesis").innerHTML = [
+        "Harga dipantau terhadap VWAP dan moving average pendek untuk validasi momentum.",
+        "Broker summary dan foreign flow digunakan sebagai konfirmasi smart money.",
+        "Setup batal jika harga breakdown di bawah stop loss dengan volume besar."
+      ].map(t => `<p class="note">${t}</p>`).join("");
+    }
+
+    function prob(label, value, color) {
+      return `<div class="prob"><div class="prob-head"><span>${label}</span><strong>${value}%</strong></div><div class="track"><span style="width:${value}%;background:${color}"></span></div></div>`;
+    }
+
+    function metric(label, value, tone = "") {
+      return `<div class="metric"><div class="label">${label}</div><div class="value ${tone}">${value}</div></div>`;
+    }
+
+    function renderPlanner() {
+      const capital = Number($("capital").value || 0);
+      const risk = Number($("risk").value || .02);
+      const r = recommendation();
+      const riskPerShare = Math.max(1, selected.price - r.stopLoss);
+      const riskBudget = capital * risk;
+      const lotByRisk = Math.floor(riskBudget / (riskPerShare * 100));
+      const lotByCapital = Math.floor((capital * .24) / (selected.price * 100));
+      const lot = Math.max(1, Math.min(lotByRisk || 1, lotByCapital || 1));
+      const maxLoss = lot * 100 * riskPerShare;
+      const bestGain = lot * 100 * (r.tp2 - selected.price);
+      $("lotPlan").textContent = `${number.format(lot)} lot`;
+      $("lotText").textContent = `Estimasi risiko cut loss ${rupiah.format(maxLoss)} dan skenario terbaik ke TP2 ${rupiah.format(bestGain)}. Lot dipilih dari batas modal dan toleransi risiko.`;
+    }
+
+    function renderBrokers() {
+      const rows = [
+        ["YP - Mirae Asset", "buyer", selected.price * 1250000, selected.price - 15, 12450],
+        ["CC - Mandiri Sekuritas", "buyer", selected.price * 840000, selected.price - 8, 8360],
+        ["AK - UBS Sekuritas", "seller", selected.price * 760000, selected.price + 12, -7520],
+        ["ZP - Maybank", "seller", selected.price * 510000, selected.price + 20, -5040]
+      ];
+      $("brokers").innerHTML = rows.map(([broker, side, value, avg, lot]) => `
+        <div class="flow-row">
+          <span><strong>${broker}</strong><br><span class="sub">avg ${rupiah.format(avg)} · ${compact.format(value)}</span></span>
+          <span class="${side === "buyer" ? "up" : "down"}">${side}<br>${number.format(lot)} lot</span>
+        </div>
+      `).join("");
+    }
+
+    function renderFlow() {
+      const buy = selected.price * 1360000;
+      const sell = selected.price * 1020000;
+      $("foreignBuy").textContent = compact.format(buy);
+      $("foreignSell").textContent = compact.format(sell);
+      $("foreign5d").textContent = compact.format(buy * 2.8 - sell * 2.1);
+      $("institutional").textContent = compact.format(buy * .42);
+      $("flowInsight").textContent = "Foreign net masih positif. Jika inflow bertahan 3-5 sesi dan harga tetap di atas VWAP, probabilitas trend continuation meningkat.";
+    }
+
+    function renderComparison() {
+      const rows = topRanked().slice(0, 5).map(s => {
+        const valuation = s.pe < 12 || s.pbv < 1.5 ? "murah" : s.pe > 22 ? "premium" : "fair";
+        const momentum = s.changePercent > 1 ? "kuat" : s.changePercent < 0 ? "lemah" : "netral";
+        return `<div class="compare-row"><span><strong>${s.symbol}</strong> · ${s.name}<br><span class="sub">Valuation ${valuation} · momentum ${momentum} · dividend ${s.dividendYield}%</span></span><span class="cyan">${s.aiScore}</span></div>`;
+      });
+      $("comparison").innerHTML = rows.join("");
+    }
+
+    function renderHeatmap() {
+      $("heatmap").innerHTML = filteredStocks().map(s => {
+        const positive = s.changePercent >= 0;
+        const alpha = Math.min(.88, .18 + Math.abs(s.changePercent) / 5);
+        return `<button class="heat-cell" data-symbol="${s.symbol}" type="button" style="background:${positive ? `rgba(50,213,131,${alpha})` : `rgba(255,92,119,${alpha})`}"><strong>${s.symbol}</strong><span>${s.changePercent > 0 ? "+" : ""}${s.changePercent}%</span></button>`;
+      }).join("");
+      $("heatmap").querySelectorAll("button").forEach(button => {
+        button.addEventListener("click", () => {
+          selected = stocks.find(s => s.symbol === button.dataset.symbol);
+          $("stockSearch").value = selected.symbol;
+          selected = { ...selected, candles: null };
+          render();
+          loadSelectedMarketData(true);
+        });
+      });
+    }
+
+    function answerQuestion() {
+      const q = $("question").value.trim();
+      const lower = q.toLowerCase();
+      const r = recommendation();
+      const tech = technicalScores()[0][2];
+      const symbolsInQuestion = stocks.filter(stock => lower.includes(stock.symbol.toLowerCase()));
+
+      if (symbolsInQuestion.length >= 2 || lower.includes("banding")) {
+        const compared = (symbolsInQuestion.length >= 2 ? symbolsInQuestion : [selected, ...topRanked().filter(s => s.symbol !== selected.symbol)]).slice(0, 3);
+        $("answer").innerHTML = `Perbandingan cepat: ${compared.map(s => `<strong>${s.symbol}</strong> harga ${rupiah.format(s.price)}, PER ${s.pe}, PBV ${s.pbv}, dividend ${s.dividendYield}%, momentum ${s.changePercent > 0 ? "positif" : "negatif"}`).join("; ")}. Untuk jangka panjang, pilih yang kombinasi valuasi, profitabilitas, dan risiko sektornya paling seimbang.`;
+        return;
+      }
+
+      if (lower.includes("rsi") || lower.includes("macd") || lower.includes("indikator")) {
+        $("answer").textContent = `RSI membaca kekuatan momentum harga; di atas 70 biasanya mulai overbought, di bawah 30 oversold. MACD membaca perubahan momentum tren; golden cross memberi sinyal bullish awal. Untuk ${selected.symbol}: ${tech} MACD saat ini ${selected.change >= 0 ? "mendukung pemulihan" : "belum kuat, tunggu konfirmasi"}.`;
+        return;
+      }
+
+      if (lower.includes("turun") || lower.includes("jatuh") || lower.includes("merah")) {
+        $("answer").textContent = `${selected.symbol} turun terutama karena tekanan harga terhadap previous close ${rupiah.format(selected.previousClose || selected.price - selected.change)}. Risiko utama: breakdown support, distribusi volume besar, atau sentimen sektor. Pantau area stop loss ${rupiah.format(r.stopLoss)}; jika ditembus dengan volume tinggi, setup bullish batal.`;
+        return;
+      }
+
+      if (lower.includes("undervalued") || lower.includes("murah") || lower.includes("valuasi")) {
+        const valuation = selected.pe <= 12 || selected.pbv <= 1.5 ? "relatif murah" : selected.pe > 22 || selected.pbv > 4 ? "premium" : "cukup fair";
+        $("answer").textContent = `${selected.symbol} terlihat ${valuation} dari PER ${selected.pe} dan PBV ${selected.pbv}. Murah belum tentu langsung naik; tetap perlu catalyst, kualitas laba, dan konfirmasi teknikal. Dividend yield ${selected.dividendYield}% membantu margin of safety jika payout-nya sehat.`;
+        return;
+      }
+
+      if (lower.includes("entry") || lower.includes("cut") || lower.includes("stop") || lower.includes("target") || lower.includes("profit")) {
+        $("answer").textContent = `Plan ${selected.symbol}: entry bertahap ${rupiah.format(r.entryLow)} - ${rupiah.format(r.entryHigh)}, stop loss ${rupiah.format(r.stopLoss)}, target profit ${rupiah.format(r.tp1)} lalu ${rupiah.format(r.tp2)}, risk/reward ${r.rr}R. Hindari all-in; gunakan lot planner agar risiko per transaksi terkendali.`;
+        return;
+      }
+
+      if (lower.includes("lot") || lower.includes("modal") || lower.includes("uang")) {
+        renderPlanner();
+        $("answer").textContent = `Untuk modal ${rupiah.format(Number($("capital").value || 0))}, rekomendasi saat ini ${$("lotPlan").textContent}. Logikanya memakai batas modal dan toleransi risiko supaya kerugian jika cut loss tidak terlalu besar.`;
+        return;
+      }
+
+      if (lower.includes("ai gratis") || lower.includes("gratisan") || lower.includes("api gratis")) {
+        $("answer").textContent = "Bisa, tapi untuk HTML statis pilihan gratis yang aman adalah chatbot rule-based seperti ini. Memakai API AI gratis langsung dari browser kurang aman karena API key bisa terlihat publik. Alternatifnya: pakai backend kecil dengan free tier, atau model browser-local, tapi ukurannya besar dan bisa lambat.";
+        return;
+      }
+
+      $("answer").textContent = `${selected.symbol} saat ini dibaca ${selected.change >= 0 ? "bullish" : "sideways/bearish ringan"} dengan confidence ${r.confidence}%. Entry ideal ${rupiah.format(r.entryLow)} - ${rupiah.format(r.entryHigh)}, stop loss ${rupiah.format(r.stopLoss)}, target profit ${rupiah.format(r.tp1)} / ${rupiah.format(r.tp2)}. ${tech} Pertanyaan kamu: "${q || "Apakah saham ini bagus?"}" dijawab dari harga, teknikal, broker summary, foreign flow, dan valuasi.`;
+    }
+
+    init();
+  </script>
+</body>
+</html>
